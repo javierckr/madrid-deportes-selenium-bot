@@ -24,7 +24,7 @@ async fn main() -> WebDriverResult<()> {
     let token = env::var("TOKEN").expect("TOKEN environment variable not set");
     let bot = teloxide::Bot::new(token);
     let mut caps = DesiredCapabilities::chrome();
-    caps.set_headless()?;
+    //caps.set_headless()?;
     caps.add_arg("--ignore-certificate-errors")?;
     caps.set_browser_option(
         "prefs",
@@ -35,7 +35,8 @@ async fn main() -> WebDriverResult<()> {
     let driver = WebDriver::new(webdriver_url, caps).await?;
 
     let login_url = "https://deportesweb.madrid.es/DeportesWeb/login";
-    let ticketingurl = "https://deportesweb.madrid.es/DeportesWeb/Modulos/VentaServicios/Eventos/AltaEventos?token=5F47B0942AD5C1AEDF2C9763DED7327B6A76610EF308A974322DE773241863D1";
+    let ticketingurl: String =
+        env::var("TICKETING_URL").expect("TICKETING_URL environment variable not set");
 
     driver.goto(login_url).await?;
     // Accept cookies
@@ -46,9 +47,16 @@ async fn main() -> WebDriverResult<()> {
         Err(_) => {}
     }
     //
-    match driver.find(By::XPath("/html/body/form/div[3]/div[2]/div[2]/div/div[2]/section[1]/div[2]/div/div/div[2]/article[1]")).await {
+    match driver.query(By::XPath("/html/body/form/div[3]/div[2]/div[2]/div/div[2]/section[1]/div[2]/div/div/div[2]/article[1]"))
+        .wait(
+            std::time::Duration::from_secs(10),
+            std::time::Duration::from_millis(250),
+        )
+        .single()
+        .await
+        {
         Ok(elem) => {
-            elem.click().await?;
+            elem.click_when_ready().await?;
         }
         Err(_) => {
             bot.send_message(
@@ -68,50 +76,123 @@ async fn main() -> WebDriverResult<()> {
             .unwrap();
         }
     }
-    std::thread::sleep(std::time::Duration::from_secs(1));
-    let elem_form = driver
-        .find(By::Id("ContentFixedSection_uLogin_txtIdentificador"))
-        .await?;
-    elem_form.click().await?;
-    elem_form.send_keys(user).await?;
-
-    let elem_form = driver
-        .find(By::Id("ContentFixedSection_uLogin_txtContrasena"))
-        .await?;
-    elem_form.click().await?;
-    elem_form.send_keys(password).await?;
-
-    let submit_button = driver
-        .find(By::Id("ContentFixedSection_uLogin_btnLogin"))
-        .await?;
-    submit_button.click().await?;
-
-    std::thread::sleep(std::time::Duration::from_secs(1));
-    driver.goto(ticketingurl).await?;
-    std::thread::sleep(std::time::Duration::from_secs(1));
-
-    let desired_date = get_two_days_later_date();
-    // use custom attribute data-day to select the date
-    let datepicker = driver
-        .find(By::XPath(format!("//td[@data-day='{desired_date}']")))
-        .await?;
-    datepicker.click().await?;
-
-    std::thread::sleep(std::time::Duration::from_secs(1));
     match driver
-        .find(By::XPath(format!("//h4[contains(text(),'{hour}')]")))
+        .query(By::Id("ContentFixedSection_uLogin_txtIdentificador"))
+        .wait(
+            std::time::Duration::from_secs(10),
+            std::time::Duration::from_millis(250),
+        )
+        .single()
         .await
     {
-        Ok(day) => {
-            day.click().await?;
+        Ok(elem) => {
+            elem.click_when_ready().await?;
+            elem.send_keys(user).await?;
         }
         Err(_) => {
             bot.send_message(
                 teloxide::types::ChatId(chat),
-                format!(
-                    "No se puede seleccionar el dia {} a las {}",
-                    desired_date, hour
-                ),
+                format!("No se encuentra el campo de usuario"),
+            )
+            .send()
+            .await
+            .unwrap();
+            let screenshot = driver.screenshot_as_png().await?;
+            bot.send_photo(
+                teloxide::types::ChatId(chat),
+                teloxide::types::InputFile::memory(screenshot),
+            )
+            .send()
+            .await
+            .unwrap();
+        }
+    }
+
+    match driver
+        .query(By::Id("ContentFixedSection_uLogin_txtContrasena"))
+        .wait(
+            std::time::Duration::from_secs(10),
+            std::time::Duration::from_millis(250),
+        )
+        .single()
+        .await
+    {
+        Ok(elem) => {
+            elem.click_when_ready().await?;
+            elem.send_keys(password).await?;
+        }
+        Err(_) => {
+            bot.send_message(
+                teloxide::types::ChatId(chat),
+                format!("No se encuentra el campo de password"),
+            )
+            .send()
+            .await
+            .unwrap();
+            let screenshot = driver.screenshot_as_png().await?;
+            bot.send_photo(
+                teloxide::types::ChatId(chat),
+                teloxide::types::InputFile::memory(screenshot),
+            )
+            .send()
+            .await
+            .unwrap();
+        }
+    }
+
+    match driver
+        .query(By::Id("ContentFixedSection_uLogin_btnLogin"))
+        .wait(
+            std::time::Duration::from_secs(10),
+            std::time::Duration::from_millis(250),
+        )
+        .single()
+        .await
+    {
+        Ok(elem) => {
+            elem.click_when_ready().await?;
+        }
+        Err(_) => {
+            bot.send_message(
+                teloxide::types::ChatId(chat),
+                format!("No se encuentra el boton de login"),
+            )
+            .send()
+            .await
+            .unwrap();
+            let screenshot = driver.screenshot_as_png().await?;
+            bot.send_photo(
+                teloxide::types::ChatId(chat),
+                teloxide::types::InputFile::memory(screenshot),
+            )
+            .send()
+            .await
+            .unwrap();
+        }
+    }
+    // Wait till login
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    driver.goto(ticketingurl).await?;
+
+    let desired_date = get_two_days_later_date();
+    // use custom attribute data-day to select the date
+    match driver
+        .query(By::XPath(format!("//td[@data-day='{desired_date}']")))
+        .wait(
+            std::time::Duration::from_secs(10),
+            std::time::Duration::from_millis(250),
+        )
+        .single()
+        .await
+    {
+        Ok(date_element) => {
+            date_element.click().await?;
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+        Err(_) => {
+            bot.send_message(
+                teloxide::types::ChatId(chat),
+                format!("No se puede seleccionar el dia {}", desired_date),
             )
             .send()
             .await
@@ -129,7 +210,60 @@ async fn main() -> WebDriverResult<()> {
         }
     }
 
-    std::thread::sleep(std::time::Duration::from_secs(1));
+    for calles in 1..=2 {
+        match driver
+            .query(By::XPath(format!(
+                "(//h4[contains(., '{hour}')])[{calles}]"
+            )))
+            .wait(
+                std::time::Duration::from_secs(10),
+                std::time::Duration::from_millis(250),
+            )
+            .single()
+            .await
+        {
+            Ok(hour_element) => {
+                hour_element.click().await?;
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                match driver.find(By::Id("uAlert_spnAlertDanger")).await {
+                    Ok(alert) => {
+                        let alert_text = alert.text().await?;
+                        if alert_text.contains("disponible") {
+                            println!("Alerta: {} en la calle {}", alert_text, calles);
+                        } else {
+                            println!("Alerta: {} en la calle {}", alert_text, calles);
+                        }
+                    }
+                    Err(_) => {
+                        break;
+                    }
+                }
+            }
+            Err(e) => {
+                println!("Error al seleccionar la hora: {:?}", e);
+                bot.send_message(
+                    teloxide::types::ChatId(chat),
+                    format!(
+                        "No se puede seleccionar el dia {} a las {}",
+                        desired_date, hour
+                    ),
+                )
+                .send()
+                .await
+                .unwrap();
+                let screenshot = driver.screenshot_as_png().await?;
+                bot.send_photo(
+                    teloxide::types::ChatId(chat),
+                    teloxide::types::InputFile::memory(screenshot),
+                )
+                .send()
+                .await
+                .unwrap();
+                driver.quit().await?;
+                return Ok(());
+            }
+        }
+    }
 
     match driver
         .find(By::Id(
@@ -144,7 +278,7 @@ async fn main() -> WebDriverResult<()> {
             bot.send_message(
                 teloxide::types::ChatId(chat),
                 format!(
-                    "No se puede seleccionar el dia {} a las {}",
+                    "No se puede confirmar el dia {} a las {}",
                     desired_date, hour
                 ),
             )
