@@ -114,4 +114,6 @@ target/release/
 
 ## License
 
-See the repository for license information.
+This project is licensed under the [GNU General Public License v3.0](LICENSE) — see the [LICENSE](LICENSE) file for details.
+
+This means you are free to use, modify, and distribute this software under the same license, provided you include the license and copyright notice.
