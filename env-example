@@ -1,0 +1,9 @@
+USER=yourmail@example.com
+PASSWORD=yourpassword
+HOUR=19:00
+WEBDRIVER_URL=http://localhost:9515
+CHAT=Telegrarm chat id to send log messages
+TOKEN=Telegram token
+# Url de la web final donde deja seleccionar el día, esta es de ejemplo
+TICKETING_URL=https://deportesweb.madrid.es/DeportesWeb/Modulos/VentaServicios/Eventos/AltaEventos?token=5F47B0942AD5C1AEDF2C9763DED7327B6A76610EF308A974322DE773241863D1
+

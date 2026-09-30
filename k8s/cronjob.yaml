@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: madriddeportes-javier
+spec:
+  timeZone: Europe/Madrid
+  schedule: "00 18 * * 1,2,3,6,0"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: madrid-deportes-bot
+            image: javierckr/madrid-deportes-selenium-bot:latest
+            imagePullPolicy: IfNotPresent
+            envFrom:
+              - secretRef:
+                  name: token-pass
+
+          restartPolicy: OnFailure
